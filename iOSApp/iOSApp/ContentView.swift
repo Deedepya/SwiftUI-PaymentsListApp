@@ -66,18 +66,23 @@ struct InitialScreenView: View {
         VStack {
             Spacer()
             
-            CountDownTimerView()
+            CountDownTimerView(onLimitReached: {
+                viewModel.timerLimitReached()
+            })
             
             Spacer()
             
-            OpenPaymentView(paymentsListModalView: {
-                PaymentModalView(onClose: { id in
-                    viewModel.updateSelection(id: id)
-                }, selectedPaymentId: viewModel.selectedPaymentId)
-            })
-            
-            if viewModel.showFinish {
-                FinishView()
+            if !viewModel.hideButtons {
+                
+                OpenPaymentView(paymentsListModalView: {
+                    PaymentModalView(onClose: { id in
+                        viewModel.updateSelection(id: id)
+                    }, selectedPaymentId: viewModel.selectedPaymentId)
+                })
+                
+                if viewModel.showFinish {
+                    FinishView()
+                }
             }
         }
         .padding(10)
@@ -85,7 +90,11 @@ struct InitialScreenView: View {
 }
 
 struct CountDownTimerView: View {
-    @StateObject var viewModel = CountDownTimerViewModel()
+    @StateObject var viewModel: CountDownTimerViewModel
+
+    init(onLimitReached: @escaping () -> Void) {
+        _viewModel = StateObject(wrappedValue: CountDownTimerViewModel(onLimitReached: onLimitReached))
+    }
     
     var body: some View {
         VStack(alignment: .center) {
@@ -221,6 +230,7 @@ struct ContentView_Previews: PreviewProvider {
 class InitialScreenViewModel: ObservableObject {
     @Published var showFinish = false
     var selectedPaymentId: String?
+    @Published var hideButtons = false
     
     func updateSelection(id: String?) {
         if let id = id {
@@ -230,6 +240,10 @@ class InitialScreenViewModel: ObservableObject {
             self.selectedPaymentId = nil
             self.showFinish = false
         }
+    }
+    
+    func timerLimitReached() {
+        hideButtons = true
     }
 }
 
@@ -269,8 +283,14 @@ class CountDownTimerViewModel: ObservableObject {
     
     @Published var timer: Int = 60
     private var subscriber: AnyCancellable?
+    let onLimitReached: () -> Void
     
-    init() {
+    init(onLimitReached: @escaping () -> Void) {
+        self.onLimitReached = onLimitReached
+        self.subscribeToShowTimer()
+    }
+    
+    func subscribeToShowTimer() {
         subscriber = Timer.publish(every: 1, on: .main, in: .common)
             .autoconnect()
             .sink { [weak self] _ in
@@ -278,6 +298,10 @@ class CountDownTimerViewModel: ObservableObject {
                     return
                 }
                 self.timer = self.timer - 1
+                
+                if self.timer == 0 {
+                    onLimitReached()
+                }
             }
     }
 }
