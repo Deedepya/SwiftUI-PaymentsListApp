@@ -22,22 +22,18 @@
 import SwiftUI
 import Combine
 
-//class Model: ObservableObject {
-//
-//    let processDurationInSeconds: Int = 60
-//    var repository: PaymentTypesRepository = PaymentTypesRepositoryImplementation()
-//    var cancellables: [AnyCancellable] = []
-//
-//    init() {
-//        Timer.publish(every: 1, on: .main, in: .common)
-//                    .autoconnect()
-//                    .store(in: &cancellables)
-//    }
-//}
-
 enum Constants {
-    static let finish = "Finish"
-    static let openPayment = "Open Payment"
+    enum UI {
+        static let finish = "Finish"
+        static let openPayment = "Open Payment"
+        static let congragulations = "Congratulations"
+        static let done = "Done"
+        static let paymentInfo = "Payment info"
+    }
+    
+    enum Defaults {
+        static let timeLimit = 60
+    }
 }
 
 // MARK: Views
@@ -70,13 +66,10 @@ struct InitialScreenView: View {
             
             Spacer()
             
-            if !viewModel.hideButtons {
-                
-                OpenPaymentView()
-                
-                if viewModel.showFinish {
-                    FinishView()
-                }
+            OpenPaymentView()
+            
+            if viewModel.showFinish {
+                FinishView()
             }
         }
         .padding(10)
@@ -116,14 +109,14 @@ struct OpenPaymentView: View {
 struct FinishView: View {
     var body: some View {
         NavigationLink(destination: CongratulationsView()) {
-            NextScreenTitleView(title: "Finish")
+            NextScreenTitleView(title: Constants.UI.finish)
         }
     }
 }
 
 struct CongratulationsView: View {
     var body: some View {
-        Text("Congratulations")
+        Text(Constants.UI.congragulations)
     }
 }
 
@@ -150,7 +143,7 @@ struct PaymentModalView: View {
             .toolbar {
                 if viewModel.selectedPaymentId != nil {
                     ToolbarItem(placement: .navigationBarTrailing) {
-                        Button("Finish") {
+                        Button(Constants.UI.done) {
                             dismiss()
                         }
                     }
@@ -219,8 +212,7 @@ struct ContentView_Previews: PreviewProvider {
 class InitialScreenViewModel: ObservableObject {
     @Published var showFinish = false
     @Published var selectedPaymentId: String?
-    @Published var hideButtons = false
-    
+ 
     func updateSelection(id: String?) {
         if let id = id {
             self.selectedPaymentId = id
@@ -229,10 +221,6 @@ class InitialScreenViewModel: ObservableObject {
             self.selectedPaymentId = nil
             self.showFinish = false
         }
-    }
-    
-    func timerLimitReached() {
-        hideButtons = true
     }
 }
 
@@ -270,7 +258,7 @@ class PaymentViewViewModel: ObservableObject {
 
 class CountDownTimerViewModel: ObservableObject {
     
-    @Published var timer: Int = 60
+    @Published var timer: Int = Constants.Defaults.timeLimit
     private var subscriber: AnyCancellable?
     
     init() {
@@ -294,7 +282,7 @@ class CountDownTimerViewModel: ObservableObject {
 }
 
 class OpenPaymentViewModel: ObservableObject {
-    let buttonTitle: String = "Open Payment"
+    let buttonTitle: String = Constants.UI.openPayment
     @Published var showPayments = false
     
     func openPayment() {
@@ -309,7 +297,7 @@ class PaymentInfoViewModel: ObservableObject {
     @Published var searchText: String = ""
     var originalPaymentTypes = [PaymentType]()
     private let repository: PaymentTypesRepository
-    let navTitle = "Payment info"
+    let navTitle = Constants.UI.paymentInfo
     var subscriber: AnyCancellable?
     
     init(repository: PaymentTypesRepository = PaymentTypesRepositoryImplementation()) {
