@@ -66,19 +66,13 @@ struct InitialScreenView: View {
         VStack {
             Spacer()
             
-            CountDownTimerView(onLimitReached: {
-                viewModel.timerLimitReached()
-            })
+            CountDownTimerView()
             
             Spacer()
             
             if !viewModel.hideButtons {
                 
-                OpenPaymentView(paymentsListModalView: {
-                    PaymentModalView(onClose: { id in
-                        viewModel.updateSelection(id: id)
-                    }, selectedPaymentId: viewModel.selectedPaymentId)
-                })
+                OpenPaymentView()
                 
                 if viewModel.showFinish {
                     FinishView()
@@ -90,12 +84,8 @@ struct InitialScreenView: View {
 }
 
 struct CountDownTimerView: View {
-    @StateObject var viewModel: CountDownTimerViewModel
+    @StateObject private var viewModel = CountDownTimerViewModel()
 
-    init(onLimitReached: @escaping () -> Void) {
-        _viewModel = StateObject(wrappedValue: CountDownTimerViewModel(onLimitReached: onLimitReached))
-    }
-    
     var body: some View {
         VStack(alignment: .center) {
 
@@ -108,13 +98,8 @@ struct CountDownTimerView: View {
     }
 }
 
-struct OpenPaymentView<PaymentsListModalView: View>: View {
+struct OpenPaymentView: View {
     @StateObject private var viewModel = OpenPaymentViewModel()
-    let paymentsListModalView: PaymentsListModalView
-    
-    init(@ViewBuilder paymentsListModalView: () -> PaymentsListModalView) {
-        self.paymentsListModalView = paymentsListModalView()
-    }
     
     var body: some View {
         Button {
@@ -123,7 +108,7 @@ struct OpenPaymentView<PaymentsListModalView: View>: View {
             NextScreenTitleView(title: viewModel.buttonTitle)
         }
         .sheet(isPresented: $viewModel.showPayments) {
-            paymentsListModalView
+            PaymentModalView()
         }
     }
 }
@@ -143,14 +128,8 @@ struct CongratulationsView: View {
 }
 
 struct PaymentModalView: View {
-    let onClose: (String?) -> Void
-    @StateObject var viewModel: PaymentInfoViewViewModel
+    @StateObject var viewModel = PaymentInfoViewModel()
     @Environment(\.dismiss) private var dismiss
-    
-    init(onClose: @escaping (String?) -> Void, selectedPaymentId: String?) {
-        _viewModel = StateObject(wrappedValue: PaymentInfoViewViewModel(selectedPaymentId: selectedPaymentId))
-        self.onClose = onClose
-    }
     
     var body: some View {
         // Load payment types when presenting the view. Repository has 2 seconds delay.
@@ -165,25 +144,36 @@ struct PaymentModalView: View {
         // Finish button should be only available if user selected payment type.
         // Tapping on Finish button should close the modal.
         NavigationView {
-            VStack {
-                if viewModel.showLoader {
-                    ProgressView()
-                } else {
-                    List {
-                        ForEach(viewModel.filteredItems) { paymentType in
-                            paymentRow(payment: paymentType)
+            mainView
+            .searchable(text: $viewModel.searchText)
+            .navigationTitle(viewModel.navTitle)
+            .toolbar {
+                if viewModel.selectedPaymentId != nil {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button("Finish") {
+                            dismiss()
                         }
                     }
                 }
             }
-            .searchable(text: $viewModel.searchText, placement: .toolbar)
-            .navigationTitle(viewModel.navTitle)
-            .navigationBarItems(trailing: Button("Finish", action: {
-                onClose(viewModel.selectedPaymentId)
-                dismiss()
-            }))
             .onAppear {
                 viewModel.loadPaymentTypes()
+            }.refreshable {
+                viewModel.loadPaymentTypes()
+            }
+        }
+    }
+    
+    private var mainView: some View {
+        VStack {
+            if viewModel.showLoader {
+                ProgressView()
+            } else {
+                List {
+                    ForEach(viewModel.filteredPayments) { paymentType in
+                        paymentRow(payment: paymentType)
+                    }
+                }
             }
         }
     }
@@ -200,7 +190,6 @@ struct PaymentModalView: View {
                 
                 if viewModel.isThisPaymentChecked(payment) {
                     Image(systemName: "checkmark")
-                        .border(Color.blue)
                 }
             }
         })
@@ -229,7 +218,7 @@ struct ContentView_Previews: PreviewProvider {
 
 class InitialScreenViewModel: ObservableObject {
     @Published var showFinish = false
-    var selectedPaymentId: String?
+    @Published var selectedPaymentId: String?
     @Published var hideButtons = false
     
     func updateSelection(id: String?) {
@@ -283,10 +272,8 @@ class CountDownTimerViewModel: ObservableObject {
     
     @Published var timer: Int = 60
     private var subscriber: AnyCancellable?
-    let onLimitReached: () -> Void
     
-    init(onLimitReached: @escaping () -> Void) {
-        self.onLimitReached = onLimitReached
+    init() {
         self.subscribeToShowTimer()
     }
     
@@ -300,7 +287,7 @@ class CountDownTimerViewModel: ObservableObject {
                 self.timer = self.timer - 1
                 
                 if self.timer == 0 {
-                    onLimitReached()
+                    self.subscriber?.cancel()
                 }
             }
     }
@@ -315,19 +302,17 @@ class OpenPaymentViewModel: ObservableObject {
     }
 }
 
-class PaymentInfoViewViewModel: ObservableObject {
+class PaymentInfoViewModel: ObservableObject {
     @Published var showLoader = false
-    var paymentTypes = [PaymentType]()
-    @Published var filteredItems = [PaymentType]()
+    @Published var filteredPayments = [PaymentType]()
     @Published var selectedPaymentId: String?
+    @Published var searchText: String = ""
+    var originalPaymentTypes = [PaymentType]()
     private let repository: PaymentTypesRepository
     let navTitle = "Payment info"
-    @Published var searchText: String = ""
     var subscriber: AnyCancellable?
     
-    init(selectedPaymentId: String?, repository: PaymentTypesRepository = PaymentTypesRepositoryImplementation()) {
-        
-        self.selectedPaymentId = selectedPaymentId
+    init(repository: PaymentTypesRepository = PaymentTypesRepositoryImplementation()) {
         self.repository = repository
         subscriber = $searchText.sink { [weak self] str in
             self?.onSearchClick(str)
@@ -336,10 +321,10 @@ class PaymentInfoViewViewModel: ObservableObject {
     
     func onSearchClick(_ searchStr: String) {
         if searchStr.isEmpty {
-            self.filteredItems = paymentTypes
+            self.filteredPayments = originalPaymentTypes
         } else {
-            self.filteredItems =
-            paymentTypes.filter({
+            self.filteredPayments =
+            originalPaymentTypes.filter({
                 let nameLowerCase = $0.name.lowercased()
                 return nameLowerCase.contains(searchStr.lowercased())
             })
@@ -353,8 +338,8 @@ class PaymentInfoViewViewModel: ObservableObject {
             
             switch result {
             case .success(let paymentTypes):
-                self?.paymentTypes = paymentTypes
-                self?.filteredItems = paymentTypes
+                self?.originalPaymentTypes = paymentTypes
+                self?.filteredPayments = paymentTypes
             case .failure:
                 print("handle later")
             }
