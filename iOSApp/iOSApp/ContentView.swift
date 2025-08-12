@@ -69,10 +69,14 @@ struct InitialScreenView: View {
                 CountDownTimerView()
                 
                 Spacer()
-                /*
-                OpenPaymentView()
                 
-                if viewModel.showFinish {
+                OpenPaymentView(paymentsListModalView: {
+                    PaymentModalView(onClose: { id in
+                        //viewModel.updateSelection(id: id)
+                    }, selectedPaymentId: "")
+                })
+                
+                /*if viewModel.showFinish {
                     finishView
                 }*/
             }
@@ -87,24 +91,28 @@ struct InitialScreenView: View {
     }
 }
 
-/*
-struct OpenPaymentView: View {
-    @StateObject var viewModel = InitialScreenViewModel()
+
+struct OpenPaymentView<PaymentsListModalView: View>: View {
+    @StateObject private var viewModel = OpenPaymentViewModel()
+    let paymentsListModalView: PaymentsListModalView
+    
+    init(@ViewBuilder paymentsListModalView: () -> PaymentsListModalView) {
+        self.paymentsListModalView = paymentsListModalView()
+    }
     
     var body: some View {
         Button {
-            viewModel.openPaymentClick()
+            viewModel.openPayment()
         } label: {
-            NextScreenTitleView(title: "Open Payment")
+            NextScreenTitleView(title: viewModel.buttonTitle)
         }
-        .sheet(isPresented: $viewModel.showPayment) {
-            PaymentModalView(onClose: { id in
-                viewModel.updateSelection(id: id)
-            }, selectedPaymentId: viewModel.selectedPaymentId)
+        .sheet(isPresented: $viewModel.showPayments) {
+            paymentsListModalView
         }
     }
-}*/
+}
 
+// MARK: Reusable views
 struct NextScreenTitleView: View {
     @State var title: String
     
@@ -135,18 +143,7 @@ struct FinishView: View {
     }
 }
 
-struct PaymentModalView : View {
-    let onClose: (String?) -> Void
-    let selectedPaymentId: String?
-    
-    var body: some View {
-        NavigationView {
-            PaymentInfoView(onClose: onClose, selectedPaymentId: selectedPaymentId)
-        }
-    }
-}
-
-struct PaymentInfoView: View {
+struct PaymentModalView: View {
     let onClose: (String?) -> Void
     @StateObject var viewModel: PaymentInfoViewViewModel
     @Environment(\.dismiss) private var dismiss
@@ -168,25 +165,27 @@ struct PaymentInfoView: View {
         //
         // Finish button should be only available if user selected payment type.
         // Tapping on Finish button should close the modal.
-        VStack {
-            if viewModel.showLoader {
-                ProgressView()
-            } else {
-                List {
-                    ForEach(viewModel.filteredItems) { paymentType in
-                        paymentRow(payment: paymentType)
+        NavigationView {
+            VStack {
+                if viewModel.showLoader {
+                    ProgressView()
+                } else {
+                    List {
+                        ForEach(viewModel.filteredItems) { paymentType in
+                            paymentRow(payment: paymentType)
+                        }
                     }
                 }
             }
-        }
-        .searchable(text: $viewModel.searchText, placement: .toolbar)
-        .navigationTitle(viewModel.navTitle)
-        .navigationBarItems(trailing: Button("Finish", action: {
-            onClose(viewModel.selectedPaymentId)
-            dismiss()
-        }))
-        .onAppear {
-            viewModel.loadPaymentTypes()
+            .searchable(text: $viewModel.searchText, placement: .toolbar)
+            .navigationTitle(viewModel.navTitle)
+            .navigationBarItems(trailing: Button("Finish", action: {
+                onClose(viewModel.selectedPaymentId)
+                dismiss()
+            }))
+            .onAppear {
+                viewModel.loadPaymentTypes()
+            }
         }
     }
     
@@ -218,7 +217,7 @@ struct ContentView_Previews: PreviewProvider {
 
 // MARK: ViewModels
 
-class OpenPaymentViewViewModel: ObservableObject {
+class PaymentViewViewModel: ObservableObject {
     @Published var showFinish = false
     @Published var showPayment = false
     @Published var timer = 0
@@ -259,8 +258,20 @@ class CountDownTimerViewModel: ObservableObject {
         subscriber = Timer.publish(every: 1, on: .main, in: .common)
             .autoconnect()
             .sink { [weak self] _ in
-                self?.timer -= 1
+                guard let self = self else {
+                    return
+                }
+                self.timer = self.timer - 1
             }
+    }
+}
+
+class OpenPaymentViewModel: ObservableObject {
+    let buttonTitle: String = "Open Payment"
+    @Published var showPayments = false
+    
+    func openPayment() {
+        showPayments = true
     }
 }
 
@@ -358,6 +369,6 @@ struct PaymmentButtonStyle: ViewModifier {
             .frame(maxWidth: .infinity)
             .background(.white)
             .foregroundColor(.blue)
-            .padding(.vertical, 10)
+            .cornerRadius(10)
     }
 }
