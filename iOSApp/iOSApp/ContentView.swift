@@ -49,48 +49,55 @@ struct ContentView: View {
 }
 
 struct InitialScreenView: View {
+    @StateObject private var viewModel = InitialScreenViewModel()
     
     var body: some View {
         NavigationView {
-            mainView
+            ZStack {
+                Color.blue
+                    .ignoresSafeArea()
+                
+                mainView
+            }
         }
     }
     
     var mainView: some View {
-        
-        ZStack {
-            Color.blue
-                .ignoresSafeArea()
+        VStack {
+            Spacer()
             
-            VStack {
-                Spacer()
-                
-                // Seconds should count down from 60 to 0
-                CountDownTimerView()
-                
-                Spacer()
-                
-                OpenPaymentView(paymentsListModalView: {
-                    PaymentModalView(onClose: { id in
-                        //viewModel.updateSelection(id: id)
-                    }, selectedPaymentId: "")
-                })
-                
-                /*if viewModel.showFinish {
-                    finishView
-                }*/
+            CountDownTimerView()
+            
+            Spacer()
+            
+            OpenPaymentView(paymentsListModalView: {
+                PaymentModalView(onClose: { id in
+                    viewModel.updateSelection(id: id)
+                }, selectedPaymentId: viewModel.selectedPaymentId)
+            })
+            
+            if viewModel.showFinish {
+                FinishView()
             }
-            .padding(10)
         }
-    }
-    
-    var finishView: some View {
-        NavigationLink(destination: FinishView()) {
-            NextScreenTitleView(title: "Finish")
-        }
+        .padding(10)
     }
 }
 
+struct CountDownTimerView: View {
+    @StateObject var viewModel = CountDownTimerViewModel()
+    
+    var body: some View {
+        VStack(alignment: .center) {
+
+            Text("You have only \(viewModel.timer) seconds left to get the discount")
+                .font(.title)
+                .bold()
+                .foregroundColor(.white)
+        }
+        .background(.blue)
+    }
+}
 
 struct OpenPaymentView<PaymentsListModalView: View>: View {
     @StateObject private var viewModel = OpenPaymentViewModel()
@@ -112,32 +119,15 @@ struct OpenPaymentView<PaymentsListModalView: View>: View {
     }
 }
 
-// MARK: Reusable views
-struct NextScreenTitleView: View {
-    @State var title: String
-    
-    var body: some View {
-        Text(title)
-            .paymmentButtonStyle()
-    }
-}
-
-struct CountDownTimerView: View {
-    @StateObject var viewModel = CountDownTimerViewModel()
-    
-    var body: some View {
-        VStack(alignment: .center) {
-
-            Text("You have only \(viewModel.timer) seconds left to get the discount")
-                .font(.title)
-                .bold()
-                .foregroundColor(.white)
-        }
-        .background(.blue)
-    }
-}
-
 struct FinishView: View {
+    var body: some View {
+        NavigationLink(destination: CongratulationsView()) {
+            NextScreenTitleView(title: "Finish")
+        }
+    }
+}
+
+struct CongratulationsView: View {
     var body: some View {
         Text("Congratulations")
     }
@@ -209,6 +199,17 @@ struct PaymentModalView: View {
     }
 }
 
+// MARK: Reusable views
+struct NextScreenTitleView: View {
+    @State var title: String
+    
+    var body: some View {
+        Text(title)
+            .paymmentButtonStyle()
+    }
+}
+
+
 struct ContentView_Previews: PreviewProvider {
     static var previews: some View {
         ContentView()
@@ -216,6 +217,21 @@ struct ContentView_Previews: PreviewProvider {
 }
 
 // MARK: ViewModels
+
+class InitialScreenViewModel: ObservableObject {
+    @Published var showFinish = false
+    var selectedPaymentId: String?
+    
+    func updateSelection(id: String?) {
+        if let id = id {
+            self.selectedPaymentId = id
+            self.showFinish = true
+        } else {
+            self.selectedPaymentId = nil
+            self.showFinish = false
+        }
+    }
+}
 
 class PaymentViewViewModel: ObservableObject {
     @Published var showFinish = false
