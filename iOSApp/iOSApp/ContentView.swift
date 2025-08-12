@@ -50,37 +50,33 @@ struct ContentView: View {
 
 struct InitialScreenView: View {
     
-    @StateObject var viewModel = InitialScreenViewModel()
-    
     var body: some View {
-        mainViewWrapper
-    }
-    
-    var mainViewWrapper: some View {
         NavigationView {
-            VStack {
-                mainView
-                    .padding(10)
-            }
-            .background(.blue)
+            mainView
         }
     }
     
     var mainView: some View {
         
-        VStack {
-            Spacer()
+        ZStack {
+            Color.blue
+                .ignoresSafeArea()
             
-            // Seconds should count down from 60 to 0
-            CountDownTimerView()
-            
-            Spacer()
-            
-            OpenPaymentView()
-            
-            if viewModel.showFinish {
-                finishView
+            VStack {
+                Spacer()
+                
+                // Seconds should count down from 60 to 0
+                CountDownTimerView()
+                
+                Spacer()
+                /*
+                OpenPaymentView()
+                
+                if viewModel.showFinish {
+                    finishView
+                }*/
             }
+            .padding(10)
         }
     }
     
@@ -91,6 +87,7 @@ struct InitialScreenView: View {
     }
 }
 
+/*
 struct OpenPaymentView: View {
     @StateObject var viewModel = InitialScreenViewModel()
     
@@ -106,7 +103,7 @@ struct OpenPaymentView: View {
             }, selectedPaymentId: viewModel.selectedPaymentId)
         }
     }
-}
+}*/
 
 struct NextScreenTitleView: View {
     @State var title: String
@@ -118,16 +115,17 @@ struct NextScreenTitleView: View {
 }
 
 struct CountDownTimerView: View {
-    @State private var timer = 0
+    @StateObject var viewModel = CountDownTimerViewModel()
     
     var body: some View {
         VStack(alignment: .center) {
-            
-            Text("You have only \(timer) seconds left to get the discount")
+
+            Text("You have only \(viewModel.timer) seconds left to get the discount")
                 .font(.title)
                 .bold()
                 .foregroundColor(.white)
         }
+        .background(.blue)
     }
 }
 
@@ -218,6 +216,7 @@ struct ContentView_Previews: PreviewProvider {
     }
 }
 
+// MARK: ViewModels
 
 class OpenPaymentViewViewModel: ObservableObject {
     @Published var showFinish = false
@@ -227,12 +226,6 @@ class OpenPaymentViewViewModel: ObservableObject {
     var subscriber: AnyCancellable?
     var selectedPaymentId: String?
     
-    init() {
-        subscriber = Timer.publish(every: 1, on: .main, in: .common)
-            .sink(receiveValue: { [weak self] value in
-                self?.timer = (self?.timer ?? 0) + 1
-            })
-    }
     
     func openPaymentClick() {
         self.showPayment = true
@@ -257,6 +250,19 @@ class OpenPaymentViewViewModel: ObservableObject {
     }
 }
 
+class CountDownTimerViewModel: ObservableObject {
+    
+    @Published var timer: Int = 60
+    private var subscriber: AnyCancellable?
+    
+    init() {
+        subscriber = Timer.publish(every: 1, on: .main, in: .common)
+            .autoconnect()
+            .sink { [weak self] _ in
+                self?.timer -= 1
+            }
+    }
+}
 
 class PaymentInfoViewViewModel: ObservableObject {
     @Published var showLoader = false
