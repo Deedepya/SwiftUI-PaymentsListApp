@@ -22,6 +22,7 @@
 import SwiftUI
 import Combine
 
+// MARK: Constants
 enum Constants {
     enum UI {
         static let finish = "Finish"
@@ -48,6 +49,7 @@ struct InitialScreenView: View {
     @StateObject private var viewModel = InitialScreenViewModel()
     
     var body: some View {
+        let test = Self._printChanges()
         NavigationView {
             ZStack {
                 Color.blue
@@ -66,8 +68,12 @@ struct InitialScreenView: View {
             
             Spacer()
             
-            OpenPaymentView()
-            
+            OpenPaymentView(content: {
+                PaymentModalView(onDoneClick: {
+                    viewModel.onDoneClick()
+                })
+            })
+        
             if viewModel.showFinish {
                 FinishView()
             }
@@ -80,6 +86,7 @@ struct CountDownTimerView: View {
     @StateObject private var viewModel = CountDownTimerViewModel()
 
     var body: some View {
+        // let test = Self._printChanges()
         VStack(alignment: .center) {
 
             Text("You have only \(viewModel.timer) seconds left to get the discount")
@@ -91,23 +98,42 @@ struct CountDownTimerView: View {
     }
 }
 
-struct OpenPaymentView: View {
+struct OpenPaymentView<ModalView: View>: View {
     @StateObject private var viewModel = OpenPaymentViewModel()
+    let content: () -> ModalView
     
     var body: some View {
+        let test = Self._printChanges()
         Button {
             viewModel.openPayment()
         } label: {
             NextScreenTitleView(title: viewModel.buttonTitle)
         }
         .sheet(isPresented: $viewModel.showPayments) {
-            PaymentModalView()
+            content()
         }
     }
 }
 
+//struct OpenPaymentView: View {
+//    @StateObject private var viewModel = OpenPaymentViewModel()
+//
+//    var body: some View {
+//        let test = Self._printChanges()
+//        Button {
+//            viewModel.openPayment()
+//        } label: {
+//            NextScreenTitleView(title: viewModel.buttonTitle)
+//        }
+//        .sheet(isPresented: $viewModel.showPayments) {
+//            PaymentModalView()
+//        }
+//    }
+//}
+
 struct FinishView: View {
     var body: some View {
+        let test = Self._printChanges()
         NavigationLink(destination: CongratulationsView()) {
             NextScreenTitleView(title: Constants.UI.finish)
         }
@@ -116,6 +142,7 @@ struct FinishView: View {
 
 struct CongratulationsView: View {
     var body: some View {
+        let test = Self._printChanges()
         Text(Constants.UI.congragulations)
     }
 }
@@ -123,8 +150,10 @@ struct CongratulationsView: View {
 struct PaymentModalView: View {
     @StateObject var viewModel = PaymentInfoViewModel()
     @Environment(\.dismiss) private var dismiss
+    let onDoneClick: () -> Void
     
     var body: some View {
+        let test = Self._printChanges()
         // Load payment types when presenting the view. Repository has 2 seconds delay.
         // User should select an item.
         // Show checkmark in a selected row.
@@ -141,9 +170,10 @@ struct PaymentModalView: View {
             .searchable(text: $viewModel.searchText)
             .navigationTitle(viewModel.navTitle)
             .toolbar {
-                if viewModel.selectedPaymentId != nil {
+                if viewModel.isPaymentSelected {
                     ToolbarItem(placement: .navigationBarTrailing) {
                         Button(Constants.UI.done) {
+                            onDoneClick()
                             dismiss()
                         }
                     }
@@ -172,16 +202,31 @@ struct PaymentModalView: View {
     }
     
     @ViewBuilder
-    func paymentRow(payment: PaymentType) -> some View {
+    func paymentRow(payment: PaymentRowViewModel) -> some View {
+        PaymentTypeRowView(viewModel: payment, onSelect: { id, isChecked in
+            viewModel.onTapPayment(id: id, isChecked: isChecked)
+        })
+    }
+}
+
+struct PaymentTypeRowView: View, Equatable {
+    static func == (lhs: PaymentTypeRowView, rhs: PaymentTypeRowView) -> Bool {
+        lhs.viewModel.isSelected == rhs.viewModel.isSelected
+    }
+    
+    @ObservedObject var viewModel: PaymentRowViewModel
+    let onSelect: (String, Bool) -> Void
+    
+    var body: some View {
+        let test = Self._printChanges()
         Button(action: {
-            viewModel.onTapPayment(id: payment.id, onComplete: { isSelected in
-            })
+            viewModel.handleSelection(onComplete: onSelect)
         }, label: {
             HStack {
-                Text(payment.name)
+                Text(viewModel.payment.name)
                     .foregroundColor(.black)
                 
-                if viewModel.isThisPaymentChecked(payment) {
+                if viewModel.isSelected {
                     Image(systemName: "checkmark")
                 }
             }
@@ -195,12 +240,32 @@ struct NextScreenTitleView: View {
     @State var title: String
     
     var body: some View {
+        let test = Self._printChanges()
         Text(title)
             .paymmentButtonStyle()
     }
 }
 
 
+// MARK: Common styles
+extension View {
+    func paymmentButtonStyle() -> some View {
+        modifier(PaymmentButtonStyle())
+    }
+}
+
+struct PaymmentButtonStyle: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .padding(.vertical, 10)
+            .frame(maxWidth: .infinity)
+            .background(.white)
+            .foregroundColor(.blue)
+            .cornerRadius(10)
+    }
+}
+
+// MARK: Previews
 struct ContentView_Previews: PreviewProvider {
     static var previews: some View {
         ContentView()
@@ -211,48 +276,9 @@ struct ContentView_Previews: PreviewProvider {
 
 class InitialScreenViewModel: ObservableObject {
     @Published var showFinish = false
-    @Published var selectedPaymentId: String?
  
-    func updateSelection(id: String?) {
-        if let id = id {
-            self.selectedPaymentId = id
-            self.showFinish = true
-        } else {
-            self.selectedPaymentId = nil
-            self.showFinish = false
-        }
-    }
-}
-
-class PaymentViewViewModel: ObservableObject {
-    @Published var showFinish = false
-    @Published var showPayment = false
-    @Published var timer = 0
-    @Published var showCongragulations = false
-    var subscriber: AnyCancellable?
-    var selectedPaymentId: String?
-    
-    
-    func openPaymentClick() {
-        self.showPayment = true
-    }
-    
-    func updateSelection(_ isPaymentSelected: Bool) {
-        self.showFinish = isPaymentSelected
-    }
-    
-    func updateSelection(id: String?) {
-        if let id = id {
-            self.selectedPaymentId = id
-            self.showFinish = true
-        } else {
-            self.selectedPaymentId = nil
-            self.showFinish = false
-        }
-    }
-    
-    func finishClick() {
-        showCongragulations = true
+    func onDoneClick() {
+        showFinish = true
     }
 }
 
@@ -292,31 +318,20 @@ class OpenPaymentViewModel: ObservableObject {
 
 class PaymentInfoViewModel: ObservableObject {
     @Published var showLoader = false
-    @Published var filteredPayments = [PaymentType]()
-    @Published var selectedPaymentId: String?
-    @Published var searchText: String = ""
-    var originalPaymentTypes = [PaymentType]()
-    private let repository: PaymentTypesRepository
-    let navTitle = Constants.UI.paymentInfo
-    var subscriber: AnyCancellable?
-    
-    init(repository: PaymentTypesRepository = PaymentTypesRepositoryImplementation()) {
-        self.repository = repository
-        subscriber = $searchText.sink { [weak self] str in
-            self?.onSearchClick(str)
+    @Published var filteredPayments = [PaymentRowViewModel]()
+    @Published var isPaymentSelected: Bool = false
+    @Published var searchText: String = "" {
+        didSet {
+            onSearchClick()
         }
     }
     
-    func onSearchClick(_ searchStr: String) {
-        if searchStr.isEmpty {
-            self.filteredPayments = originalPaymentTypes
-        } else {
-            self.filteredPayments =
-            originalPaymentTypes.filter({
-                let nameLowerCase = $0.name.lowercased()
-                return nameLowerCase.contains(searchStr.lowercased())
-            })
-        }
+    let navTitle = Constants.UI.paymentInfo
+    private var originalPaymentTypes = [PaymentRowViewModel]()
+    private let repository: PaymentTypesRepository
+    
+    init(repository: PaymentTypesRepository = PaymentTypesRepositoryImplementation()) {
+        self.repository = repository
     }
     
     func loadPaymentTypes() {
@@ -326,62 +341,59 @@ class PaymentInfoViewModel: ObservableObject {
             
             switch result {
             case .success(let paymentTypes):
-                self?.originalPaymentTypes = paymentTypes
-                self?.filteredPayments = paymentTypes
+                let paymentRowViewModels = paymentTypes.map {
+                    PaymentRowViewModel(payment: $0)
+                }
+                
+                self?.originalPaymentTypes = paymentRowViewModels
+                self?.filteredPayments = paymentRowViewModels
             case .failure:
                 print("handle later")
             }
         }
     }
     
-    func isThisPaymentChecked(_ paymentType: PaymentType) -> Bool {
-        if let selectedPaymentId = selectedPaymentId, paymentType.id == selectedPaymentId {
-            return true
+    func onTapPayment(id: String = "", isChecked: Bool) {
+        
+        if isChecked {
+            // Find index of previously selected item
+            if let previousIndex = originalPaymentTypes.firstIndex(where: { $0.isSelected && $0.payment.id != id }) {
+                originalPaymentTypes[previousIndex].isSelected = false
+            }
         }
         
-        return false
+        updateIsSelected(isChecked)
     }
     
-    func onTapPayment(id: String, onComplete: (Bool) -> Void) {
-        if id == selectedPaymentId {
-            selectedPaymentId = nil
-            onComplete(false)
-        } else {
-            selectedPaymentId = id
-            onComplete(true)
+    private func updateIsSelected(_ isSelected: Bool) {
+        if isPaymentSelected != isSelected {
+            isPaymentSelected = isSelected
         }
     }
+    
+    private func onSearchClick() {
+        let search = searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        
+        filteredPayments = search.isEmpty ? originalPaymentTypes: originalPaymentTypes.filter {
+            $0.payment.name.lowercased().contains(search)
+        }
+    }
+    
 }
 
-/*
- class Model: ObservableObject {
- 
- let processDurationInSeconds: Int = 60
- var repository: PaymentTypesRepository = PaymentTypesRepositoryImplementation()
- var cancellables: [AnyCancellable] = []
- 
- init() {
- //        Timer.publish(every: 1, on: .main, in: .common)
- //            .autoconnect()
- //            .store(in: &cancellables)
- }
- }
- */
 
-// MARK: Common styles
-extension View {
-    func paymmentButtonStyle() -> some View {
-        modifier(PaymmentButtonStyle())
+class PaymentRowViewModel: ObservableObject, Identifiable {
+    let payment: PaymentType
+    @Published var isSelected = false
+    
+    init(payment: PaymentType, isSelected: Bool = false) {
+        self.payment = payment
+        self.isSelected = isSelected
+    }
+        
+    func handleSelection(onComplete: @escaping (String, Bool) -> Void) {
+        self.isSelected = !self.isSelected
+        onComplete(payment.id, self.isSelected)
     }
 }
 
-struct PaymmentButtonStyle: ViewModifier {
-    func body(content: Content) -> some View {
-        content
-            .padding(.vertical, 10)
-            .frame(maxWidth: .infinity)
-            .background(.white)
-            .foregroundColor(.blue)
-            .cornerRadius(10)
-    }
-}
