@@ -5,22 +5,353 @@
 //  Created by dedeepya reddy salla on 12/08/25.
 //
 
+// Your task is to finish this application to satisfy requirements below and make it look like on the attached screenshots. Try to use 80/20 principle.
+// Good luck! 🍀
+
+// 1. Setup UI of the ContentView. Try to keep it as similar as possible.
+// 2. Subscribe to the timer and count seconds down from 60 to 0 on the ContentView.
+// 3. Present PaymentModalView as a sheet after tapping on the "Open payment" button.
+// 4. Load payment types from repository in PaymentInfoView. Show loader when waiting for the response. No need to handle error.
+// 5. List should be refreshable.
+// 6. Show search bar for the list to filter payment types. You can filter items in any way.
+// 7. User should select one of the types on the list. Show checkmark next to the name when item is selected.
+// 8. Show "Done" button in navigation bar only if payment type is selected. Tapping this button should hide the modal.
+// 9. Show "Finish" button on ContentScreen only when "payment type" was selected.
+// 10. Replace main view with "FinishView" when user taps on the "Finish" button.
+
 import SwiftUI
+import Combine
+
+//class Model: ObservableObject {
+//
+//    let processDurationInSeconds: Int = 60
+//    var repository: PaymentTypesRepository = PaymentTypesRepositoryImplementation()
+//    var cancellables: [AnyCancellable] = []
+//
+//    init() {
+//        Timer.publish(every: 1, on: .main, in: .common)
+//                    .autoconnect()
+//                    .store(in: &cancellables)
+//    }
+//}
+
+enum Constants {
+    static let finish = "Finish"
+    static let openPayment = "Open Payment"
+}
+
+// MARK: Views
 
 struct ContentView: View {
     var body: some View {
-        VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
-                .foregroundColor(.accentColor)
-            Text("Hello, world!")
+        InitialScreenView()
+    }
+}
+
+struct InitialScreenView: View {
+    
+    @StateObject var viewModel = InitialScreenViewModel()
+    
+    var body: some View {
+        mainViewWrapper
+    }
+    
+    var mainViewWrapper: some View {
+        NavigationView {
+            VStack {
+                mainView
+                    .padding(10)
+            }
+            .background(.blue)
         }
-        .padding()
+    }
+    
+    var mainView: some View {
+        
+        VStack {
+            Spacer()
+            
+            // Seconds should count down from 60 to 0
+            CountDownTimerView()
+            
+            Spacer()
+            
+            OpenPaymentView()
+            
+            if viewModel.showFinish {
+                finishView
+            }
+        }
+    }
+    
+    var finishView: some View {
+        NavigationLink(destination: FinishView()) {
+            NextScreenTitleView(title: "Finish")
+        }
+    }
+}
+
+struct OpenPaymentView: View {
+    @StateObject var viewModel = InitialScreenViewModel()
+    
+    var body: some View {
+        Button {
+            viewModel.openPaymentClick()
+        } label: {
+            NextScreenTitleView(title: "Open Payment")
+        }
+        .sheet(isPresented: $viewModel.showPayment) {
+            PaymentModalView(onClose: { id in
+                viewModel.updateSelection(id: id)
+            }, selectedPaymentId: viewModel.selectedPaymentId)
+        }
+    }
+}
+
+struct NextScreenTitleView: View {
+    @State var title: String
+    
+    var body: some View {
+        Text(title)
+            .paymmentButtonStyle()
+    }
+}
+
+struct CountDownTimerView: View {
+    @State private var timer = 0
+    
+    var body: some View {
+        VStack(alignment: .center) {
+            
+            Text("You have only \(timer) seconds left to get the discount")
+                .font(.title)
+                .bold()
+                .foregroundColor(.white)
+        }
+    }
+}
+
+struct FinishView: View {
+    var body: some View {
+        Text("Congratulations")
+    }
+}
+
+struct PaymentModalView : View {
+    let onClose: (String?) -> Void
+    let selectedPaymentId: String?
+    
+    var body: some View {
+        NavigationView {
+            PaymentInfoView(onClose: onClose, selectedPaymentId: selectedPaymentId)
+        }
+    }
+}
+
+struct PaymentInfoView: View {
+    let onClose: (String?) -> Void
+    @StateObject var viewModel: PaymentInfoViewViewModel
+    @Environment(\.dismiss) private var dismiss
+    
+    init(onClose: @escaping (String?) -> Void, selectedPaymentId: String?) {
+        _viewModel = StateObject(wrappedValue: PaymentInfoViewViewModel(selectedPaymentId: selectedPaymentId))
+        self.onClose = onClose
+    }
+    
+    var body: some View {
+        // Load payment types when presenting the view. Repository has 2 seconds delay.
+        // User should select an item.
+        // Show checkmark in a selected row.
+        //
+        // No need to handle error.
+        // Use refreshing mechanism to reload the list items.
+        // Show loader before response comes.
+        // Show search bar to filter payment types
+        //
+        // Finish button should be only available if user selected payment type.
+        // Tapping on Finish button should close the modal.
+        VStack {
+            if viewModel.showLoader {
+                ProgressView()
+            } else {
+                List {
+                    ForEach(viewModel.filteredItems) { paymentType in
+                        paymentRow(payment: paymentType)
+                    }
+                }
+            }
+        }
+        .searchable(text: $viewModel.searchText, placement: .toolbar)
+        .navigationTitle(viewModel.navTitle)
+        .navigationBarItems(trailing: Button("Finish", action: {
+            onClose(viewModel.selectedPaymentId)
+            dismiss()
+        }))
+        .onAppear {
+            viewModel.loadPaymentTypes()
+        }
+    }
+    
+    @ViewBuilder
+    func paymentRow(payment: PaymentType) -> some View {
+        Button(action: {
+            viewModel.onTapPayment(id: payment.id, onComplete: { isSelected in
+            })
+        }, label: {
+            HStack {
+                Text(payment.name)
+                    .foregroundColor(.black)
+                
+                if viewModel.isThisPaymentChecked(payment) {
+                    Image(systemName: "checkmark")
+                        .border(Color.blue)
+                }
+            }
+        })
+        
     }
 }
 
 struct ContentView_Previews: PreviewProvider {
     static var previews: some View {
         ContentView()
+    }
+}
+
+
+class OpenPaymentViewViewModel: ObservableObject {
+    @Published var showFinish = false
+    @Published var showPayment = false
+    @Published var timer = 0
+    @Published var showCongragulations = false
+    var subscriber: AnyCancellable?
+    var selectedPaymentId: String?
+    
+    init() {
+        subscriber = Timer.publish(every: 1, on: .main, in: .common)
+            .sink(receiveValue: { [weak self] value in
+                self?.timer = (self?.timer ?? 0) + 1
+            })
+    }
+    
+    func openPaymentClick() {
+        self.showPayment = true
+    }
+    
+    func updateSelection(_ isPaymentSelected: Bool) {
+        self.showFinish = isPaymentSelected
+    }
+    
+    func updateSelection(id: String?) {
+        if let id = id {
+            self.selectedPaymentId = id
+            self.showFinish = true
+        } else {
+            self.selectedPaymentId = nil
+            self.showFinish = false
+        }
+    }
+    
+    func finishClick() {
+        showCongragulations = true
+    }
+}
+
+
+class PaymentInfoViewViewModel: ObservableObject {
+    @Published var showLoader = false
+    var paymentTypes = [PaymentType]()
+    @Published var filteredItems = [PaymentType]()
+    @Published var selectedPaymentId: String?
+    private let repository: PaymentTypesRepository
+    let navTitle = "Payment info"
+    @Published var searchText: String = ""
+    var subscriber: AnyCancellable?
+    
+    init(selectedPaymentId: String?, repository: PaymentTypesRepository = PaymentTypesRepositoryImplementation()) {
+        
+        self.selectedPaymentId = selectedPaymentId
+        self.repository = repository
+        subscriber = $searchText.sink { [weak self] str in
+            self?.onSearchClick(str)
+        }
+    }
+    
+    func onSearchClick(_ searchStr: String) {
+        if searchStr.isEmpty {
+            self.filteredItems = paymentTypes
+        } else {
+            self.filteredItems =
+            paymentTypes.filter({
+                let nameLowerCase = $0.name.lowercased()
+                return nameLowerCase.contains(searchStr.lowercased())
+            })
+        }
+    }
+    
+    func loadPaymentTypes() {
+        self.showLoader = true
+        self.repository.getTypes { [weak self] result in
+            self?.showLoader = false
+            
+            switch result {
+            case .success(let paymentTypes):
+                self?.paymentTypes = paymentTypes
+                self?.filteredItems = paymentTypes
+            case .failure:
+                print("handle later")
+            }
+        }
+    }
+    
+    func isThisPaymentChecked(_ paymentType: PaymentType) -> Bool {
+        if let selectedPaymentId = selectedPaymentId, paymentType.id == selectedPaymentId {
+            return true
+        }
+        
+        return false
+    }
+    
+    func onTapPayment(id: String, onComplete: (Bool) -> Void) {
+        if id == selectedPaymentId {
+            selectedPaymentId = nil
+            onComplete(false)
+        } else {
+            selectedPaymentId = id
+            onComplete(true)
+        }
+    }
+}
+
+/*
+ class Model: ObservableObject {
+ 
+ let processDurationInSeconds: Int = 60
+ var repository: PaymentTypesRepository = PaymentTypesRepositoryImplementation()
+ var cancellables: [AnyCancellable] = []
+ 
+ init() {
+ //        Timer.publish(every: 1, on: .main, in: .common)
+ //            .autoconnect()
+ //            .store(in: &cancellables)
+ }
+ }
+ */
+
+// MARK: Common styles
+extension View {
+    func paymmentButtonStyle() -> some View {
+        modifier(PaymmentButtonStyle())
+    }
+}
+
+struct PaymmentButtonStyle: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .padding(.vertical, 10)
+            .frame(maxWidth: .infinity)
+            .background(.white)
+            .foregroundColor(.blue)
+            .padding(.vertical, 10)
     }
 }

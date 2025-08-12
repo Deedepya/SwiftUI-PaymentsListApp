@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		3F14BAB82E4B854C00C2BE6F /* PaymentTypesRepositoryImplementation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F14BAB72E4B854C00C2BE6F /* PaymentTypesRepositoryImplementation.swift */; };
 		3FB448572E4B84E1008AE964 /* iOSAppApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3FB448562E4B84E1008AE964 /* iOSAppApp.swift */; };
 		3FB448592E4B84E1008AE964 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3FB448582E4B84E1008AE964 /* ContentView.swift */; };
 		3FB4485B2E4B84E3008AE964 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 3FB4485A2E4B84E3008AE964 /* Assets.xcassets */; };
@@ -34,6 +35,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		3F14BAB72E4B854C00C2BE6F /* PaymentTypesRepositoryImplementation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaymentTypesRepositoryImplementation.swift; sourceTree = "<group>"; };
 		3FB448532E4B84E1008AE964 /* iOSApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = iOSApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		3FB448562E4B84E1008AE964 /* iOSAppApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iOSAppApp.swift; sourceTree = "<group>"; };
 		3FB448582E4B84E1008AE964 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -96,6 +98,7 @@
 			children = (
 				3FB448562E4B84E1008AE964 /* iOSAppApp.swift */,
 				3FB448582E4B84E1008AE964 /* ContentView.swift */,
+				3F14BAB72E4B854C00C2BE6F /* PaymentTypesRepositoryImplementation.swift */,
 				3FB4485A2E4B84E3008AE964 /* Assets.xcassets */,
 				3FB4485C2E4B84E3008AE964 /* Preview Content */,
 			);
@@ -258,6 +261,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				3FB448592E4B84E1008AE964 /* ContentView.swift in Sources */,
+				3F14BAB82E4B854C00C2BE6F /* PaymentTypesRepositoryImplementation.swift in Sources */,
 				3FB448572E4B84E1008AE964 /* iOSAppApp.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
